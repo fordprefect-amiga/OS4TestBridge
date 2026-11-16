@@ -2,6 +2,7 @@
   "name": "os4-test-bridge",
   "displayName": "OS4 Test Bridge",
   "description": "Thin VS Code adapter for the OS4 Test Bridge CLI.",
+  "license": "MIT",
   "version": "0.0.1",
   "publisher": "os4tb-localdev",
   "private": true,

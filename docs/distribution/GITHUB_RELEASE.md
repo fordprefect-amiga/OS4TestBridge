@@ -63,6 +63,10 @@ See:
 - MorphOS bridge is not part of this release
 - Advanced compiler/toolchain combinations may require future updates
 
+## License
+
+MIT
+
 ## Publication placeholders
 
 - Repository URL: `<GITHUB_PROJECT_URL_PLACEHOLDER>`

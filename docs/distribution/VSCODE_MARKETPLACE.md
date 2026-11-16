@@ -26,6 +26,9 @@ Requirements:
 - configured shared transport directories
 - target config path set in extension
 
+License:
+- MIT
+
 Quick start:
 1) Install VSIX.
 2) Install Linux host package and AmigaOS 4 guest package.

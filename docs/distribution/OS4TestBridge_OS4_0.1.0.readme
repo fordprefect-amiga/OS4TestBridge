@@ -1,0 +1,47 @@
+Short:        Guest component for OS4 Test Bridge
+Uploader:     ford@cathousestudio.com (fordprefect-amiga)
+Author:       Cat House Studio
+Type:         dev/cross
+Version:      0.1.0
+Architecture: ppc-amigaos
+Requires:     AmigaOS 4.1 or later; shared transport directories between
+              AmigaOS guest and Linux host; OS4 Test Bridge Linux host
+              component required for bridge workflows. VS Code extension is
+              optional and only required for VS Code integration.
+Distribution: Aminet
+
+OS4 Test Bridge is a development bridge between Linux and AmigaOS 4.
+This archive contains the native AmigaOS 4 guest component used by that
+workflow.
+
+Archive contents:
+- OS4TestBridge guest agent executable
+- Payloads for bounded discovery/build/run operations
+- Docs/INSTALL.txt, Docs/README.txt, Docs/TROUBLESHOOTING.txt
+- S/startup-example
+
+This archive is not a remote shell and does not provide arbitrary shell
+execution. The bridge workflow uses typed, bounded operations and structured
+request/result handling.
+
+Validated reference environment:
+- AmigaOS 4.1 on Sam460EX under QEMU/Kyvos
+- GCC 11.5 target toolchain
+
+Expected compatible:
+- Other AmigaOS 4 environments with equivalent shared transport,
+  process execution, and suitable SDK/toolchains
+
+Not yet validated:
+- All AmigaOS 4 hardware/emulator combinations
+
+Installation:
+1) Extract OS4TestBridge_OS4_0.1.0.lha on AmigaOS 4.
+2) Start with Docs/INSTALL.txt.
+3) See Docs/README.txt and Docs/TROUBLESHOOTING.txt.
+
+Linux host component and VS Code integration are available from:
+https://github.com/fordprefect-amiga/OS4TestBridge
+
+GitHub release:
+https://github.com/fordprefect-amiga/OS4TestBridge/releases/tag/v0.1.0

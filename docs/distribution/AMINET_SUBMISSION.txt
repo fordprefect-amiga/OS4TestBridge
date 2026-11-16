@@ -1,10 +1,12 @@
 Name: OS4 Test Bridge
 Version: 0.1.0
-Type: dev/misc
+Type: dev/cross
 Architecture: ppc-amigaos
-Uploader: USER-SUPPLIED BEFORE UPLOAD
+Uploader: ford@cathousestudio.com (fordprefect-amiga)
 Author: Cat House Studio
-Homepage: USER-SUPPLIED BEFORE UPLOAD
+Homepage: https://github.com/fordprefect-amiga/OS4TestBridge
+License: MIT
+Aminet readme filename: OS4TestBridge_OS4_0.1.0.readme
 
 Short:
 Bounded AmigaOS 4 guest package for OS4 Test Bridge workflows from VS Code.
@@ -15,10 +17,10 @@ payload bundle used by the OS4 Test Bridge system, which coordinates bounded
 request/response execution from VS Code on Linux through a Linux host bridge.
 
 Requirements:
-- AmigaOS 4.1
-- OS4 Test Bridge Linux host package
-- OS4 Test Bridge VS Code extension (.vsix)
-- Shared transport directories visible to host and guest
+- AmigaOS 4.1 or later
+- Shared transport directories between AmigaOS guest and Linux host
+- OS4 Test Bridge Linux host component required for bridge workflows
+- VS Code extension optional and only required for VS Code integration
 
 Archive contents:
 - OS4TestBridge executable (guest agent)

@@ -126,3 +126,8 @@ Component versions:
 - OS4 guest version: `0.1.0`
 - Protocol version: `1`
 - Discovery schema version: `1`
+
+## License
+
+OS4 Test Bridge original project code is licensed under the MIT License.  
+See [LICENSE](LICENSE) for details.
