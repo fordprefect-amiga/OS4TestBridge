@@ -65,7 +65,7 @@ See:
 
 ## License
 
-MIT
+License: MIT. See the repository LICENSE file for details.
 
 ## Publication placeholders
 
