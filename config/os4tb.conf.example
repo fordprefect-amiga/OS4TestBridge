@@ -1,0 +1,17 @@
+# OS4 Test Bridge example configuration
+# Data-only key=value format. Unknown/duplicate keys are rejected.
+
+target_name=my-os4-target
+share_root=/path/to/os4tb/share
+default_timeout_seconds=30
+
+# Optional explicit directory overrides (defaults derive from share_root)
+# incoming_dir=/path/to/os4tb/share/incoming
+# results_dir=/path/to/os4tb/share/results
+# logs_dir=/path/to/os4tb/share/logs
+# processed_dir=/path/to/os4tb/share/processed
+
+# Optional metadata
+# install_dir=/path/to/os4tb/share/install
+# guest_label=AmigaOS4 VM
+# transport_type=smb

@@ -1,0 +1,4 @@
+>int main(void){ return missing_symbol;
+error 82 in line 1 of "vbcc_diag_error.c": unknown identifier <missing_symbol>
+1 error found!
+vbccppc failed returncode 20

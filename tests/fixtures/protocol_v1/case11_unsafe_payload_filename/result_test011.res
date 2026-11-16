@@ -1,0 +1,10 @@
+protocol_version=1
+request_id=test011
+operation=RUN_BINARY
+transport_status=ok
+execution_status=success
+exit_code=0
+artifact_status=present
+artifact_name=hello_os4.out
+log_name=log_test011.txt
+detail=ok

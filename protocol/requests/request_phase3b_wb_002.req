@@ -1,0 +1,5 @@
+protocol_version=1
+request_id=phase3b_wb_002
+operation=RUN_BINARY
+payload_name=os4tb_phase3a_payload
+expected_artifact_name=phase3b_wb_002.artifact

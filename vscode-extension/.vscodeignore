@@ -1,0 +1,16 @@
+.vscode/**
+src/**
+test/**
+out/test/**
+**/*.ts
+**/*.map
+*.tsbuildinfo
+coverage/**
+.artifacts/**
+*.log
+*.tmp
+.DS_Store
+.env
+.env.*
+tsconfig.json
+package-lock.json

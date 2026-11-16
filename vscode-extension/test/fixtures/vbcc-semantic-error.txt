@@ -1,0 +1,3 @@
+error 82 in line 7 of "src/helper.c": unknown identifier <missing_identifier>
+1 error found!
+vbccppc failed returncode 20

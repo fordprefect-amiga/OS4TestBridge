@@ -1,0 +1,3 @@
+source=main.c
+source=math.c
+source=expected.c

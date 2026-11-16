@@ -1,0 +1,5 @@
+protocol_version=1
+request_id=phase4_neg_002
+operation=RUN_BINARY
+payload_name=os4tb_payload_does_not_exist
+expected_artifact_name=phase4_neg_002.artifact

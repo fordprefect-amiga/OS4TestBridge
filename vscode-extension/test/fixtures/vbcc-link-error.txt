@@ -1,0 +1,3 @@
+libobj_math_sin.o: In function "main":
+Error 21: libobj_math_sin.o (.text+0x20): Reference to undefined symbol sin.
+vlink failed returncode 20

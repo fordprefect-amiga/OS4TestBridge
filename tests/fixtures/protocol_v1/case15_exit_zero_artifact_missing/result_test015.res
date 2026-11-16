@@ -1,0 +1,9 @@
+protocol_version=1
+request_id=test015
+operation=RUN_BINARY
+transport_status=ok
+execution_status=success
+exit_code=0
+artifact_status=missing
+log_name=log_test015.txt
+detail=artifact_missing

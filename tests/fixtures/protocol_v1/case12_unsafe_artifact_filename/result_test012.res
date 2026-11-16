@@ -1,0 +1,10 @@
+protocol_version=1
+request_id=test012
+operation=RUN_BINARY
+transport_status=ok
+execution_status=success
+exit_code=0
+artifact_status=present
+artifact_name=bad/name.out
+log_name=log_test012.txt
+detail=ok

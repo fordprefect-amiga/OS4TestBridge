@@ -1,0 +1,9 @@
+protocol_version=1
+request_id=test003
+operation=RUN_BINARY
+transport_status=ok
+execution_status=launch_failed
+exit_code=127
+artifact_status=not_required
+log_name=log_test003.txt
+detail=launch_failed

@@ -1,0 +1,16 @@
+build/
+*.o
+*.obj
+*.tmp
+*.swp
+.artifacts/
+vscode-extension/node_modules/
+vscode-extension/out/
+vscode-extension/.vscode/*.code-workspace
+coverage/
+dist/
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+config/os4tb.local*.conf

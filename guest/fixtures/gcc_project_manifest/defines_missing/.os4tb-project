@@ -1,0 +1,5 @@
+source=src/main.c
+source=src/helper.c
+header=include/config.h
+include=include
+define=OS4TB_EXPECTED_VALUE=42

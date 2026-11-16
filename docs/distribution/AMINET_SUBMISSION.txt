@@ -1,0 +1,40 @@
+Name: OS4 Test Bridge
+Version: 0.1.0
+Type: dev/misc
+Architecture: ppc-amigaos
+Uploader: USER-SUPPLIED BEFORE UPLOAD
+Author: Cat House Studio
+Homepage: USER-SUPPLIED BEFORE UPLOAD
+
+Short:
+Bounded AmigaOS 4 guest package for OS4 Test Bridge workflows from VS Code.
+
+Long:
+OS4 Test Bridge guest package for AmigaOS 4.1. It provides the native guest agent and
+payload bundle used by the OS4 Test Bridge system, which coordinates bounded
+request/response execution from VS Code on Linux through a Linux host bridge.
+
+Requirements:
+- AmigaOS 4.1
+- OS4 Test Bridge Linux host package
+- OS4 Test Bridge VS Code extension (.vsix)
+- Shared transport directories visible to host and guest
+
+Archive contents:
+- OS4TestBridge executable (guest agent)
+- Payloads/ bounded payload bundle
+- Docs/INSTALL.txt, Docs/README.txt, Docs/TROUBLESHOOTING.txt
+- S/startup-example
+- VERSION
+
+Installation summary:
+1) Extract `OS4TestBridge_OS4_0.1.0.lha` on AmigaOS 4.
+2) Review Docs/INSTALL.txt and Docs/TROUBLESHOOTING.txt.
+3) Configure startup using S/startup-example and start the guest agent.
+4) On Linux/VS Code, configure target path, run Check Target, then Inspect Toolchains.
+
+SHA256:
+f4fd45f00e2be9e38fe3d3c1f5d0c8f8993281baad23f0811161e2c2a96d6c0d  OS4TestBridge_OS4_0.1.0.lha
+
+Status:
+Draft only. No Aminet upload is claimed by this file.

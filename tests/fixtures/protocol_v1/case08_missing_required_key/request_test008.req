@@ -1,0 +1,4 @@
+protocol_version=1
+request_id=test008
+operation=RUN_BINARY
+payload_name=hello_os4

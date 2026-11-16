@@ -1,0 +1,271 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+OS4TB_TOOL_VERSION="0.1.0"
+OS4TB_PROTOCOL_VERSION="1"
+OS4TB_MAX_CONFIG_BYTES=8192
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HELPER_RUN="$ROOT/host/os4tb_run.sh"
+HELPER_SUBMIT="$ROOT/host/os4tb_submit.sh"
+VALIDATOR="$ROOT/build/host/os4tb_validate"
+
+CONFIG_PATH=""
+TARGET_NAME=""
+SHARE_ROOT=""
+INCOMING_DIR=""
+RESULTS_DIR=""
+LOGS_DIR=""
+PROCESSED_DIR=""
+DEFAULT_TIMEOUT_SECONDS=""
+INSTALL_DIR=""
+GUEST_LABEL=""
+TRANSPORT_TYPE=""
+
+trim() {
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
+usage() {
+  cat <<'EOF'
+usage:
+  os4tb [--config <path>] run [--timeout <seconds>] <request-file>
+  os4tb [--config <path>] check
+  os4tb version
+EOF
+}
+
+resolve_config_path() {
+  if [[ -n "${CONFIG_PATH}" ]]; then
+    return 0
+  fi
+  if [[ -n "${OS4TB_CONFIG:-}" ]]; then
+    CONFIG_PATH="$OS4TB_CONFIG"
+    return 0
+  fi
+  if [[ -n "${HOME:-}" ]] && [[ -f "$HOME/.config/os4testbridge/config" ]]; then
+    CONFIG_PATH="$HOME/.config/os4testbridge/config"
+    return 0
+  fi
+  return 1
+}
+
+parse_config() {
+  local seen_target=0 seen_share=0 seen_timeout=0
+  local line_no=0
+  declare -A seen_keys=()
+
+  [[ -n "$CONFIG_PATH" ]] || { echo "OS4TB_CHECK_CONFIG_PARSE=FAIL"; echo "OS4TB_FAILURE_REASON=config_path_missing"; return 1; }
+  [[ -f "$CONFIG_PATH" ]] || { echo "OS4TB_CHECK_CONFIG_PARSE=FAIL"; echo "OS4TB_FAILURE_REASON=config_not_found"; return 1; }
+  [[ -r "$CONFIG_PATH" ]] || { echo "OS4TB_CHECK_CONFIG_PARSE=FAIL"; echo "OS4TB_FAILURE_REASON=config_not_readable"; return 1; }
+
+  if [[ "$(wc -c <"$CONFIG_PATH")" -gt "$OS4TB_MAX_CONFIG_BYTES" ]]; then
+    echo "OS4TB_CHECK_CONFIG_PARSE=FAIL"
+    echo "OS4TB_FAILURE_REASON=config_too_large"
+    return 1
+  fi
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    local key value
+    line_no=$((line_no + 1))
+    line="${line%$'\r'}"
+    if [[ -z "${line//[[:space:]]/}" ]]; then
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]*# ]]; then
+      continue
+    fi
+    if [[ "$line" != *"="* ]]; then
+      echo "OS4TB_CHECK_CONFIG_PARSE=FAIL"
+      echo "OS4TB_FAILURE_REASON=config_malformed_line"
+      echo "OS4TB_CONFIG_LINE=$line_no"
+      return 1
+    fi
+
+    key="$(trim "${line%%=*}")"
+    value="$(trim "${line#*=}")"
+    if [[ -z "$key" || -z "$value" ]]; then
+      echo "OS4TB_CHECK_CONFIG_PARSE=FAIL"
+      echo "OS4TB_FAILURE_REASON=config_empty_key_or_value"
+      echo "OS4TB_CONFIG_LINE=$line_no"
+      return 1
+    fi
+    if [[ -n "${seen_keys[$key]:-}" ]]; then
+      echo "OS4TB_CHECK_CONFIG_PARSE=FAIL"
+      echo "OS4TB_FAILURE_REASON=config_duplicate_key"
+      echo "OS4TB_CONFIG_KEY=$key"
+      return 1
+    fi
+    seen_keys[$key]=1
+
+    case "$key" in
+      target_name) TARGET_NAME="$value"; seen_target=1 ;;
+      share_root) SHARE_ROOT="$value"; seen_share=1 ;;
+      incoming_dir) INCOMING_DIR="$value" ;;
+      results_dir) RESULTS_DIR="$value" ;;
+      logs_dir) LOGS_DIR="$value" ;;
+      processed_dir) PROCESSED_DIR="$value" ;;
+      default_timeout_seconds) DEFAULT_TIMEOUT_SECONDS="$value"; seen_timeout=1 ;;
+      install_dir) INSTALL_DIR="$value" ;;
+      guest_label) GUEST_LABEL="$value" ;;
+      transport_type) TRANSPORT_TYPE="$value" ;;
+      *)
+        echo "OS4TB_CHECK_CONFIG_PARSE=FAIL"
+        echo "OS4TB_FAILURE_REASON=config_unknown_key"
+        echo "OS4TB_CONFIG_KEY=$key"
+        return 1
+        ;;
+    esac
+  done <"$CONFIG_PATH"
+
+  if [[ "$seen_target" -ne 1 || "$seen_share" -ne 1 || "$seen_timeout" -ne 1 ]]; then
+    echo "OS4TB_CHECK_CONFIG_PARSE=FAIL"
+    echo "OS4TB_FAILURE_REASON=config_missing_required_key"
+    return 1
+  fi
+  if ! [[ "$DEFAULT_TIMEOUT_SECONDS" =~ ^[0-9]+$ ]] || [[ "$DEFAULT_TIMEOUT_SECONDS" -lt 1 ]]; then
+    echo "OS4TB_CHECK_CONFIG_PARSE=FAIL"
+    echo "OS4TB_FAILURE_REASON=config_invalid_default_timeout"
+    return 1
+  fi
+
+  [[ -n "$INCOMING_DIR" ]] || INCOMING_DIR="$SHARE_ROOT/incoming"
+  [[ -n "$RESULTS_DIR" ]] || RESULTS_DIR="$SHARE_ROOT/results"
+  [[ -n "$LOGS_DIR" ]] || LOGS_DIR="$SHARE_ROOT/logs"
+  [[ -n "$PROCESSED_DIR" ]] || PROCESSED_DIR="$SHARE_ROOT/processed"
+  [[ -n "$TRANSPORT_TYPE" ]] || TRANSPORT_TYPE="smb"
+}
+
+cmd_version() {
+  echo "OS4TB_TOOL_VERSION=$OS4TB_TOOL_VERSION"
+  echo "OS4TB_PROTOCOL_VERSION=$OS4TB_PROTOCOL_VERSION"
+}
+
+cmd_check() {
+  local fail=0
+  resolve_config_path || { echo "OS4TB_CHECK_CONFIG_PARSE=FAIL"; echo "OS4TB_FAILURE_REASON=config_not_found"; exit 6; }
+  parse_config || exit 6
+
+  echo "OS4TB_TOOL_VERSION=$OS4TB_TOOL_VERSION"
+  echo "OS4TB_PROTOCOL_VERSION=$OS4TB_PROTOCOL_VERSION"
+  echo "OS4TB_TARGET_NAME=$TARGET_NAME"
+  echo "OS4TB_CONFIG_PATH=$CONFIG_PATH"
+  echo "OS4TB_TRANSPORT_TYPE=$TRANSPORT_TYPE"
+  echo "OS4TB_CHECK_CONFIG_PARSE=PASS"
+
+  if [[ -d "$SHARE_ROOT" ]]; then echo "OS4TB_CHECK_SHARE_ROOT=PASS"; else echo "OS4TB_CHECK_SHARE_ROOT=FAIL"; fail=1; fi
+  if [[ -d "$INCOMING_DIR" && -w "$INCOMING_DIR" ]]; then echo "OS4TB_CHECK_INCOMING_RW=PASS"; else echo "OS4TB_CHECK_INCOMING_RW=FAIL"; fail=1; fi
+  if [[ -d "$RESULTS_DIR" && -r "$RESULTS_DIR" && -w "$RESULTS_DIR" ]]; then echo "OS4TB_CHECK_RESULTS_RW=PASS"; else echo "OS4TB_CHECK_RESULTS_RW=FAIL"; fail=1; fi
+  if [[ -d "$LOGS_DIR" ]]; then echo "OS4TB_CHECK_LOGS_DIR=PASS"; else echo "OS4TB_CHECK_LOGS_DIR=FAIL"; fail=1; fi
+  if [[ -d "$PROCESSED_DIR" ]]; then echo "OS4TB_CHECK_PROCESSED_DIR=PASS"; else echo "OS4TB_CHECK_PROCESSED_DIR=FAIL"; fail=1; fi
+  if [[ -x "$HELPER_RUN" && -x "$HELPER_SUBMIT" ]]; then echo "OS4TB_CHECK_HELPERS=PASS"; else echo "OS4TB_CHECK_HELPERS=FAIL"; fail=1; fi
+  if [[ -x "$VALIDATOR" || -f "$ROOT/host/os4tb_validate.c" ]]; then echo "OS4TB_CHECK_VALIDATOR=PASS"; else echo "OS4TB_CHECK_VALIDATOR=FAIL"; fail=1; fi
+
+  if [[ "$fail" -eq 0 ]]; then
+    echo "HOST_CONFIGURATION=PASS"
+    echo "REAL_GUEST_STATUS=UNKNOWN"
+    exit 0
+  fi
+  echo "HOST_CONFIGURATION=FAIL"
+  echo "REAL_GUEST_STATUS=UNKNOWN"
+  exit 6
+}
+
+cmd_run() {
+  local cli_timeout_seconds=""
+  local effective_timeout_seconds=""
+  local request_file=""
+
+  resolve_config_path || { echo "OS4TB_RUN_FINAL=FAIL"; echo "OS4TB_RUN_FAILURE_REASON=config_not_found"; exit 6; }
+  parse_config || exit 6
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --timeout)
+        shift
+        [[ $# -gt 0 ]] || { echo "OS4TB_RUN_FINAL=FAIL"; echo "OS4TB_RUN_FAILURE_REASON=missing_timeout_value"; exit 6; }
+        cli_timeout_seconds="$1"
+        ;;
+      *)
+        if [[ -n "$request_file" ]]; then
+          echo "OS4TB_RUN_FINAL=FAIL"
+          echo "OS4TB_RUN_FAILURE_REASON=invalid_arguments"
+          exit 6
+        fi
+        request_file="$1"
+        ;;
+    esac
+    shift
+  done
+
+  [[ -n "$request_file" ]] || { echo "OS4TB_RUN_FINAL=FAIL"; echo "OS4TB_RUN_FAILURE_REASON=request_missing"; exit 6; }
+  effective_timeout_seconds="$DEFAULT_TIMEOUT_SECONDS"
+  if [[ -n "$cli_timeout_seconds" ]]; then
+    if ! [[ "$cli_timeout_seconds" =~ ^[0-9]+$ ]] || [[ "$cli_timeout_seconds" -lt 1 ]]; then
+      echo "OS4TB_RUN_FINAL=FAIL"
+      echo "OS4TB_RUN_FAILURE_REASON=invalid_timeout"
+      exit 6
+    fi
+    effective_timeout_seconds="$cli_timeout_seconds"
+  fi
+
+  echo "OS4TB_TOOL_VERSION=$OS4TB_TOOL_VERSION"
+  echo "OS4TB_PROTOCOL_VERSION=$OS4TB_PROTOCOL_VERSION"
+  echo "OS4TB_TARGET_NAME=$TARGET_NAME"
+  echo "OS4TB_CONFIG_PATH=$CONFIG_PATH"
+
+  export OS4TB_SHARE_ROOT="$SHARE_ROOT"
+  "$HELPER_RUN" --timeout "$effective_timeout_seconds" "$request_file"
+}
+
+main() {
+  local cmd=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config)
+        shift
+        [[ $# -gt 0 ]] || { usage; exit 6; }
+        CONFIG_PATH="$1"
+        ;;
+      version)
+        cmd="version"
+        shift
+        break
+        ;;
+      check)
+        cmd="check"
+        shift
+        break
+        ;;
+      run)
+        cmd="run"
+        shift
+        break
+        ;;
+      --help|-h)
+        usage
+        exit 0
+        ;;
+      *)
+        usage
+        exit 6
+        ;;
+    esac
+    shift
+  done
+
+  case "$cmd" in
+    version) cmd_version ;;
+    check) cmd_check "$@" ;;
+    run) cmd_run "$@" ;;
+    *)
+      usage
+      exit 6
+      ;;
+  esac
+}
+
+main "$@"

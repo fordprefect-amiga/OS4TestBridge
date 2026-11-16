@@ -1,0 +1,9 @@
+protocol_version=1
+request_id=test002
+operation=RUN_BINARY
+transport_status=ok
+execution_status=child_failed
+exit_code=2
+artifact_status=not_required
+log_name=log_test002.txt
+detail=child_failed

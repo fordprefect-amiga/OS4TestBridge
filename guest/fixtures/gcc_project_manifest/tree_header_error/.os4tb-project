@@ -1,0 +1,5 @@
+source=src/main.c
+source=src/math.c
+source=src/expected.c
+header=include/values.h
+include=include

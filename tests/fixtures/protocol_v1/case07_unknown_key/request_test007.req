@@ -1,0 +1,6 @@
+protocol_version=1
+request_id=test007
+operation=RUN_BINARY
+payload_name=hello_os4
+expected_artifact_name=hello_os4.out
+extra_key=unexpected
