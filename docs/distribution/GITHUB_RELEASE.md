@@ -67,9 +67,7 @@ See:
 
 License: MIT. See the repository LICENSE file for details.
 
-## Publication placeholders
+## Project links
 
-- Repository URL: `<GITHUB_PROJECT_URL_PLACEHOLDER>`
-- Release download URLs: USER-SUPPLIED BEFORE PUBLISH
-
-Draft only. No public release is claimed by this file.
+- Repository URL: https://github.com/fordprefect-amiga/OS4TestBridge
+- Release URL: https://github.com/fordprefect-amiga/OS4TestBridge/releases/tag/v0.1.0
