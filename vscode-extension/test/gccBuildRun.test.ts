@@ -173,3 +173,22 @@ test("build-only outcome fails closed on contradictory execution evidence", () =
   assert.equal(outcome.buildReason, "execution_evidence_mismatch");
 });
 
+test("build-only outcome rejects numeric sentinel exit values", () => {
+  const outcome = evaluateBuildRunOutcome(
+    {
+      buildExit: 0,
+      executableStatus: "present",
+      executableName: "build_req",
+      executionMode: "build_only",
+      executionSkipped: "yes",
+      programExitRaw: "-1",
+      programExit: -1,
+      programFinal: "NOT_RUN"
+    },
+    { errorCount: 0, warningCount: 0, noteCount: 0 },
+    { requestedExecutionMode: "build_only" }
+  );
+  assert.equal(outcome.buildFinal, "FAIL");
+  assert.equal(outcome.buildReason, "execution_evidence_mismatch");
+});
+

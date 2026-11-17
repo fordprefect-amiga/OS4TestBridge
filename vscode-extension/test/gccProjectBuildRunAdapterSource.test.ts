@@ -155,6 +155,9 @@ test("phase7e adapter prevents program execution unless build/link succeeded", a
   const source = await readAdapterSource();
   assert.match(source, /if \(build_rc == 0 && executable_present\) \{/);
   assert.match(source, /program_rc = run_command_capture_both\(executable_name, program_output_name\);/);
+  assert.match(source, /if \(execution_skipped\) \{/);
+  assert.match(source, /OS4TB_PROGRAM_EXIT=not_run/);
+  assert.match(source, /OS4TB_PROGRAM_EXIT=%d/);
   assert.match(source, /OS4TB_PROGRAM_FINAL=NOT_RUN/);
 });
 

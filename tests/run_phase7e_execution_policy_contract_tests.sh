@@ -29,6 +29,9 @@ check_contains "OS4TB_PHASE7E_POLICY_SKIP_FINAL" 'execution_skipped = 1;'
 check_contains "OS4TB_PHASE7E_POLICY_SKIP_NOT_RUN" 'program_final = "NOT_RUN";'
 check_contains "OS4TB_PHASE7E_POLICY_ARTIFACT_MODE" 'OS4TB_GCC_EXECUTION_MODE=%s'
 check_contains "OS4TB_PHASE7E_POLICY_ARTIFACT_SKIPPED" 'OS4TB_GCC_EXECUTION_SKIPPED=%s'
+check_contains "OS4TB_PHASE7E_POLICY_SKIP_EXIT_BRANCH" 'if \(execution_skipped\) \{'
+check_contains "OS4TB_PHASE7E_POLICY_SKIP_EXIT_NOT_RUN" 'OS4TB_PROGRAM_EXIT=not_run\\n'
+check_contains "OS4TB_PHASE7E_POLICY_RUN_EXIT_NUMERIC" 'OS4TB_PROGRAM_EXIT=%d\\n", program_rc'
 
 run_exec_count="$(grep -c 'run_command_capture_both(executable_name, program_output_name)' "$SOURCE")"
 if [[ "$run_exec_count" -eq 1 ]]; then

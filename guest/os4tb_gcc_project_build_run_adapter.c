@@ -2394,7 +2394,11 @@ int main(int argc, char **argv) {
 
     (void)fprintf(artifact_fp, "OS4TB_GCC_BUILD_FINAL=%s\n", build_final);
     if (build_rc == 0 && executable_present) {
-        (void)fprintf(artifact_fp, "OS4TB_PROGRAM_EXIT=%d\n", program_rc);
+        if (execution_skipped) {
+            (void)fprintf(artifact_fp, "OS4TB_PROGRAM_EXIT=not_run\n");
+        } else {
+            (void)fprintf(artifact_fp, "OS4TB_PROGRAM_EXIT=%d\n", program_rc);
+        }
         (void)fprintf(artifact_fp, "OS4TB_PROGRAM_OUTPUT_FILE=%s\n", program_output_name);
         (void)fprintf(artifact_fp, "OS4TB_PROGRAM_FINAL=%s\n", program_final);
     } else {
