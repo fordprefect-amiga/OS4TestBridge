@@ -28,7 +28,6 @@ import {
   OS4TB_GCC_PROJECT_DEFAULT_WARNING_LEVEL,
   OS4TB_GCC_PROJECT_DEFAULT_OPTIMIZATION,
   OS4TB_GCC_PROJECT_DEFAULT_DEBUG_SYMBOLS,
-  buildGuestProjectManifestText,
   buildProjectStagedDirectoryBasename,
   buildProjectManifestBasename,
   buildProjectObjectBasename,
@@ -48,7 +47,7 @@ import {
   resolveTwoFileProjectSources,
   writeProjectManifestAtomically
 } from "./gccProjectBuildRun";
-import { buildGuestAssemblerManifestText, resolveProjectAssembler } from "./assemblerProjectBuildRun";
+import { resolveProjectAssembler } from "./assemblerProjectBuildRun";
 import {
   buildProjectAssemblerSelectionItems,
   formatProjectAssemblerStatusLabel,
@@ -104,6 +103,7 @@ import {
   SELECT_PROJECT_TOOLCHAIN_COMMAND_ID
 } from "./toolchainSelection";
 import { buildWorkflowFailMessage, buildWorkflowPassMessage } from "./workflowMessages";
+import { ProjectStagingError, stageProjectBuildRunInputs } from "./gccProjectStaging";
 import {
   BOOTSTRAP_SOURCE_EXCLUDE_GLOB,
   BOOTSTRAP_SOURCE_GLOB,
@@ -1999,6 +1999,7 @@ async function runBuildAndRunMultiFileProjectCommand(
     status,
     gccProblems,
     activeFilePath: editor!.document.uri.fsPath,
+    projectRoot: path.dirname(editor!.document.uri.fsPath),
     sourceFilePaths: [twoFile.mainPath, twoFile.helperPath],
     sourceKinds: ["c", "c"],
     headerFilePaths: [],
@@ -2063,6 +2064,7 @@ async function runBuildAndRunProjectCommand(
     status,
     gccProblems,
     activeFilePath: editor!.document.uri.fsPath,
+    projectRoot: parsedManifest.manifest.projectDirectory,
     sourceFilePaths: parsedManifest.manifest.sources,
     sourceKinds: parsedManifest.manifest.sourceKinds,
     headerFilePaths: parsedManifest.manifest.headers,
@@ -2091,6 +2093,7 @@ async function runProjectBuildAndRunCommand(params: {
   status: vscode.StatusBarItem;
   gccProblems: vscode.DiagnosticCollection;
   activeFilePath: string;
+  projectRoot: string;
   sourceFilePaths: string[];
   sourceKinds: ProjectSourceKind[];
   headerFilePaths: string[];
@@ -2260,56 +2263,74 @@ async function runProjectBuildAndRunCommand(params: {
     return;
   }
 
-  const stagedSourcePaths: string[] = [];
-  const stagedHeaderPaths: string[] = [];
-  const sourceRemap: Record<string, string> = {};
   const stagedProjectDirectoryBasename = buildProjectStagedDirectoryBasename(generatedRequest.requestId);
-  const stagedProjectDirectoryPath = path.join(incomingDirectory, stagedProjectDirectoryBasename);
+  const projectManifestBasename = payloadKind === "assemblerProjectBuildRun"
+    ? PROJECT_ASSEMBLER_GUEST_MANIFEST_FILENAME
+    : buildProjectManifestBasename();
+  let stagedSourcePaths: string[] = [];
+  let stagedHeaderPaths: string[] = [];
   try {
-    await fs.mkdir(stagedProjectDirectoryPath, { recursive: false });
+    const stagingResult = await stageProjectBuildRunInputs({
+      projectRoot: params.projectRoot,
+      stagingRoot: incomingDirectory,
+      stagedProjectDirectoryBasename,
+      sourceFilePaths: params.sourceFilePaths,
+      headerFilePaths: params.headerFilePaths,
+      includeDirectoryPaths: params.includeDirectoryPaths,
+      sourceStagedRelativePaths: params.sourceStagedRelativePaths,
+      headerStagedRelativePaths: params.headerStagedRelativePaths,
+      includeStagedRelativePaths: params.includeStagedRelativePaths,
+      manifestBasename: projectManifestBasename,
+      manifestMode: payloadKind === "assemblerProjectBuildRun"
+        ? {
+          kind: "assembler",
+          assembler: selectedAssembler!,
+          defineEntries: params.defineEntries
+        }
+        : {
+          kind: "gcc",
+          sourceKinds: params.sourceKinds,
+          defineEntries: params.defineEntries,
+          libraryNames: params.libraryNames,
+          buildProfile: params.buildProfile,
+          toolchain: selectedToolchain as ProjectResolvedToolchainProfile,
+          assembler: selectedAssembler
+        }
+    });
+    stagedSourcePaths = stagingResult.stagedSourcePaths;
+    stagedHeaderPaths = stagingResult.stagedHeaderPaths;
   } catch (err) {
     setStatus(params.status, "FAIL");
-    vscode.window.showErrorMessage(
-      `OS4TB project build/run FAIL (reason=project_directory_staging_failed, detail=${(err as Error).message}).`
-    );
-    return;
-  }
-  if (params.sourceFilePaths.length !== params.sourceStagedRelativePaths.length) {
-    setStatus(params.status, "FAIL");
-    vscode.window.showErrorMessage("OS4TB project build/run FAIL (reason=source_path_count_mismatch).");
-    return;
-  }
-  if (params.headerFilePaths.length !== params.headerStagedRelativePaths.length) {
-    setStatus(params.status, "FAIL");
-    vscode.window.showErrorMessage("OS4TB project build/run FAIL (reason=header_path_count_mismatch).");
-    return;
-  }
-
-  for (let i = 0; i < params.sourceFilePaths.length; i += 1) {
-    const stagedRelativePath = params.sourceStagedRelativePaths[i];
-    const sourceKind = params.sourceKinds[i];
-    const expectedExtension = sourceKind === "asm" ? ".s" : ".c";
-    if (!isValidProjectRelativePath(stagedRelativePath, expectedExtension)) {
-      setStatus(params.status, "FAIL");
-      vscode.window.showErrorMessage("OS4TB project build/run FAIL (reason=source_staged_path_invalid).");
-      return;
-    }
-    const stagedPath = path.join(stagedProjectDirectoryPath, ...stagedRelativePath.split("/"));
-    await fs.mkdir(path.dirname(stagedPath), { recursive: true });
-    try {
-      await fs.copyFile(params.sourceFilePaths[i], stagedPath, fsSync.constants.COPYFILE_EXCL);
-    } catch (err) {
-      setStatus(params.status, "FAIL");
+    if (err instanceof ProjectStagingError) {
+      if (
+        err.reason === "source_path_count_mismatch" ||
+        err.reason === "header_path_count_mismatch" ||
+        err.reason === "include_path_count_mismatch" ||
+        err.reason === "source_staged_path_invalid" ||
+        err.reason === "header_staged_path_invalid" ||
+        err.reason === "include_staged_path_invalid" ||
+        err.reason === "include_staged_path_not_directory"
+      ) {
+        vscode.window.showErrorMessage(`OS4TB project build/run FAIL (reason=${err.reason}).`);
+        return;
+      }
       vscode.window.showErrorMessage(
-        `OS4TB project build/run FAIL (reason=source_staging_failed, detail=${(err as Error).message}).`
+        `OS4TB project build/run FAIL (reason=${err.reason}, detail=${err.detail ?? err.message}).`
       );
       return;
     }
-    stagedSourcePaths.push(stagedRelativePath);
+    vscode.window.showErrorMessage(
+      `OS4TB project build/run FAIL (reason=project_staging_failed, detail=${(err as Error).message}).`
+    );
+    return;
+  }
+
+  const sourceRemap: Record<string, string> = {};
+  for (let i = 0; i < params.sourceFilePaths.length; i += 1) {
     try {
       setCanonicalSourceRemapEntry(
         sourceRemap,
-        `SAMDROP:incoming/${stagedProjectDirectoryBasename}/${stagedRelativePath}`,
+        `SAMDROP:incoming/${stagedProjectDirectoryBasename}/${stagedSourcePaths[i]}`,
         params.sourceFilePaths[i]
       );
     } catch (err) {
@@ -2320,30 +2341,11 @@ async function runProjectBuildAndRunCommand(params: {
       return;
     }
   }
-
   for (let i = 0; i < params.headerFilePaths.length; i += 1) {
-    const stagedRelativePath = params.headerStagedRelativePaths[i];
-    if (!isValidProjectRelativePath(stagedRelativePath, ".h")) {
-      setStatus(params.status, "FAIL");
-      vscode.window.showErrorMessage("OS4TB project build/run FAIL (reason=header_staged_path_invalid).");
-      return;
-    }
-    const stagedPath = path.join(stagedProjectDirectoryPath, ...stagedRelativePath.split("/"));
-    await fs.mkdir(path.dirname(stagedPath), { recursive: true });
-    try {
-      await fs.copyFile(params.headerFilePaths[i], stagedPath, fsSync.constants.COPYFILE_EXCL);
-    } catch (err) {
-      setStatus(params.status, "FAIL");
-      vscode.window.showErrorMessage(
-        `OS4TB project build/run FAIL (reason=header_staging_failed, detail=${(err as Error).message}).`
-      );
-      return;
-    }
-    stagedHeaderPaths.push(stagedRelativePath);
     try {
       setCanonicalSourceRemapEntry(
         sourceRemap,
-        `SAMDROP:incoming/${stagedProjectDirectoryBasename}/${stagedRelativePath}`,
+        `SAMDROP:incoming/${stagedProjectDirectoryBasename}/${stagedHeaderPaths[i]}`,
         params.headerFilePaths[i]
       );
     } catch (err) {
@@ -2355,64 +2357,7 @@ async function runProjectBuildAndRunCommand(params: {
     }
   }
 
-  if (params.includeDirectoryPaths.length !== params.includeStagedRelativePaths.length) {
-    setStatus(params.status, "FAIL");
-    vscode.window.showErrorMessage("OS4TB project build/run FAIL (reason=include_path_count_mismatch).");
-    return;
-  }
-  for (let i = 0; i < params.includeStagedRelativePaths.length; i += 1) {
-    const stagedRelativePath = params.includeStagedRelativePaths[i];
-    if (!isValidProjectRelativePath(stagedRelativePath)) {
-      setStatus(params.status, "FAIL");
-      vscode.window.showErrorMessage("OS4TB project build/run FAIL (reason=include_staged_path_invalid).");
-      return;
-    }
-    const stagedDirectoryPath = path.join(stagedProjectDirectoryPath, ...stagedRelativePath.split("/"));
-    try {
-      const includeStat = await fs.stat(stagedDirectoryPath);
-      if (!includeStat.isDirectory()) {
-        setStatus(params.status, "FAIL");
-        vscode.window.showErrorMessage("OS4TB project build/run FAIL (reason=include_staged_path_not_directory).");
-        return;
-      }
-    } catch {
-      await fs.mkdir(stagedDirectoryPath, { recursive: true });
-    }
-  }
-
   const sourceKinds = params.sourceKinds;
-  const projectManifestBasename = payloadKind === "assemblerProjectBuildRun"
-    ? PROJECT_ASSEMBLER_GUEST_MANIFEST_FILENAME
-    : buildProjectManifestBasename();
-  const projectManifestPath = path.join(stagedProjectDirectoryPath, projectManifestBasename);
-  const projectManifestText = payloadKind === "assemblerProjectBuildRun"
-    ? buildGuestAssemblerManifestText({
-      assembler: selectedAssembler!,
-      sources: stagedSourcePaths,
-      includes: params.includeStagedRelativePaths,
-      defines: params.defineEntries,
-      runProgram: "yes"
-    })
-    : buildGuestProjectManifestText(
-      stagedSourcePaths,
-      sourceKinds,
-      stagedHeaderPaths,
-      params.includeStagedRelativePaths,
-      params.defineEntries,
-      params.libraryNames,
-      params.buildProfile,
-      selectedToolchain as ProjectResolvedToolchainProfile,
-      selectedAssembler
-    );
-  try {
-    await fs.writeFile(projectManifestPath, projectManifestText, { encoding: "utf8", flag: "wx" });
-  } catch (err) {
-    setStatus(params.status, "FAIL");
-    vscode.window.showErrorMessage(
-      `OS4TB project build/run FAIL (reason=project_manifest_staging_failed, detail=${(err as Error).message}).`
-    );
-    return;
-  }
 
   const result = await client.runRequest(cfg.configPath, generatedRequest.requestPath, {
     orchestratorTimeoutSeconds: cfg.gccBuildRunTimeoutSeconds
