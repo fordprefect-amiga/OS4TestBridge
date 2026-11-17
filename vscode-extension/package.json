@@ -23,6 +23,7 @@
     "onCommand:os4TestBridge.buildAndRunCurrentFile",
     "onCommand:os4TestBridge.buildAndRunMultiFileProject",
     "onCommand:os4TestBridge.buildAndRunProject",
+    "onCommand:os4TestBridge.buildProjectOnly",
     "onCommand:os4TestBridge.selectTargetConfiguration",
     "onCommand:os4TestBridge.initializeProject",
     "onCommand:os4TestBridge.inspectToolchains",
@@ -71,6 +72,10 @@
       {
         "command": "os4TestBridge.buildAndRunProject",
         "title": "OS4 Test Bridge: Build and Run Project on AmigaOS 4"
+      },
+      {
+        "command": "os4TestBridge.buildProjectOnly",
+        "title": "OS4 Test Bridge: Build Project (No Run) on AmigaOS 4"
       },
       {
         "command": "os4TestBridge.selectTargetConfiguration",
@@ -158,7 +163,7 @@
         "os4TestBridge.gccProjectBuildRunPayloadName": {
           "type": "string",
           "default": "os4tb_gcc_project_build_run_adapter",
-          "description": "Basename-only payload used by Build and Run Multi-File Test Project on AmigaOS 4 and Build and Run Project on AmigaOS 4."
+          "description": "Basename-only payload used by Build and Run Multi-File Test Project on AmigaOS 4, Build and Run Project on AmigaOS 4, and Build Project (No Run) on AmigaOS 4."
         },
         "os4TestBridge.vbccProjectBuildRunPayloadName": {
           "type": "string",

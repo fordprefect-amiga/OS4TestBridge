@@ -46,6 +46,7 @@ export type StagingManifestMode =
     sourceKinds: ProjectSourceKind[];
     defineEntries: string[];
     libraryNames: string[];
+    executionPolicy?: "build_and_run" | "build_only";
     buildProfile: ProjectBuildProfile;
     toolchain?: ProjectResolvedToolchainProfile;
     assembler?: ResolvedProjectAssembler;
@@ -264,7 +265,8 @@ export async function stageProjectBuildRunInputs(params: StageProjectInputs): Pr
       params.manifestMode.libraryNames,
       params.manifestMode.buildProfile,
       params.manifestMode.toolchain,
-      params.manifestMode.assembler
+      params.manifestMode.assembler,
+      params.manifestMode.executionPolicy ?? "build_and_run"
     );
   try {
     await fs.writeFile(projectManifestPath, projectManifestText, { encoding: "utf8", flag: "wx" });

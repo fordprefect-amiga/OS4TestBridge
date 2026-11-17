@@ -700,7 +700,8 @@ static int parse_project_manifest_file(
     char assembler_family_out[32],
     char assembler_path_out[OS4TB_GCC_PROJECT_TOOLCHAIN_TEXT_MAX_LENGTH + 1],
     char assembler_linker_model_out[32],
-    char assembler_linker_path_out[OS4TB_GCC_PROJECT_TOOLCHAIN_TEXT_MAX_LENGTH + 1]
+    char assembler_linker_path_out[OS4TB_GCC_PROJECT_TOOLCHAIN_TEXT_MAX_LENGTH + 1],
+    char run_program_out[4]
 ) {
     FILE *fp = fopen(manifest_path, "rb");
     char (*line_buf)[512] = &gProjectRunStorage.manifest_parse_line;
@@ -750,6 +751,7 @@ static int parse_project_manifest_file(
     int seen_assembler_path = 0;
     int seen_assembler_linker_model = 0;
     int seen_assembler_linker_path = 0;
+    int seen_run_program = 0;
     int toolchain_library_dir_count = -1;
     int toolchain_library_dir_seen[OS4TB_GCC_PROJECT_MAX_TOOLCHAIN_LIBRARY_DIRS];
     int asm_source_count = 0;
@@ -817,6 +819,7 @@ static int parse_project_manifest_file(
     assembler_path_out[0] = '\0';
     assembler_linker_model_out[0] = '\0';
     assembler_linker_path_out[0] = '\0';
+    (void)snprintf(run_program_out, 4, "%s", "yes");
 
     if (fp == NULL) {
         return 1;
@@ -1291,6 +1294,13 @@ static int parse_project_manifest_file(
             }
             seen_assembler_linker_path = 1;
             (void)snprintf(assembler_linker_path_out, OS4TB_GCC_PROJECT_TOOLCHAIN_TEXT_MAX_LENGTH + 1, "%s", value);
+        } else if (strcmp(key, "RUN_PROGRAM") == 0) {
+            if (seen_run_program || (strcmp(value, "yes") != 0 && strcmp(value, "no") != 0)) {
+                fclose(fp);
+                return 2;
+            }
+            seen_run_program = 1;
+            (void)snprintf(run_program_out, 4, "%s", value);
         } else if (strcmp(key, "TOOLCHAIN_LIBRARY_DIR_COUNT") == 0) {
             if (toolchain_library_dir_count >= 0 || parse_nonnegative_int(value, &toolchain_library_dir_count) != 0) {
                 fclose(fp);
@@ -1566,6 +1576,7 @@ int main(int argc, char **argv) {
     char *project_assembler_path = gProjectRunStorage.project_assembler_path;
     char *project_assembler_linker_model = gProjectRunStorage.project_assembler_linker_model;
     char *project_assembler_linker_path = gProjectRunStorage.project_assembler_linker_path;
+    char run_program_mode[4];
     char active_linker_path[OS4TB_GCC_PROJECT_TOOLCHAIN_TEXT_MAX_LENGTH + 1];
     char toolchain_mui_include_dir[OS4TB_GCC_PROJECT_TOOLCHAIN_TEXT_MAX_LENGTH + 1];
     char(*project_toolchain_library_dirs)[OS4TB_GCC_PROJECT_TOOLCHAIN_TEXT_MAX_LENGTH + 1] =
@@ -1591,6 +1602,8 @@ int main(int argc, char **argv) {
     int link_attempted = 0;
     int has_asm_source = 0;
     int toolchain_mui_include_ready = 0;
+    int run_program_enabled = 1;
+    int execution_skipped = 0;
     int i = 0;
     const char *manifest_status = "missing";
     const char *direct_libgcc_status = "missing";
@@ -1697,6 +1710,7 @@ int main(int argc, char **argv) {
     project_assembler_path[0] = '\0';
     project_assembler_linker_model[0] = '\0';
     project_assembler_linker_path[0] = '\0';
+    (void)snprintf(run_program_mode, sizeof(run_program_mode), "%s", "yes");
     active_linker_path[0] = '\0';
     toolchain_mui_include_dir[0] = '\0';
     project_toolchain_library_dirs[0][0] = '\0';
@@ -1757,9 +1771,11 @@ int main(int argc, char **argv) {
             project_assembler_family,
             project_assembler_path,
             project_assembler_linker_model,
-            project_assembler_linker_path);
+            project_assembler_linker_path,
+            run_program_mode);
         if (parse_rc == 0) {
             manifest_status = "present";
+            run_program_enabled = strcmp(run_program_mode, "no") != 0;
             has_asm_source = 0;
             for (i = 0; i < source_count; i += 1) {
                 if (strcmp(source_types[i], "asm") == 0) {
@@ -2243,9 +2259,15 @@ int main(int argc, char **argv) {
         direct_link_final = "FAIL";
     }
 
-    if (build_rc == 0 && executable_present) {
+    if (build_rc == 0 && executable_present && run_program_enabled) {
         program_rc = run_command_capture_both(executable_name, program_output_name);
         program_final = (program_rc == 0) ? "PASS" : "FAIL";
+        build_final = "PASS";
+        project_build_final = "PASS";
+    } else if (build_rc == 0 && executable_present) {
+        program_rc = -1;
+        program_final = "NOT_RUN";
+        execution_skipped = 1;
         build_final = "PASS";
         project_build_final = "PASS";
     } else {
@@ -2272,6 +2294,14 @@ int main(int argc, char **argv) {
     (void)fprintf(artifact_fp, "OS4TB_GCC_PROJECT_DIRECTORY=%s\n", project_dir_path);
     (void)fprintf(artifact_fp, "OS4TB_GCC_PROJECT_MANIFEST=%s\n", manifest_path);
     (void)fprintf(artifact_fp, "OS4TB_GCC_PROJECT_MANIFEST_STATUS=%s\n", manifest_status);
+    (void)fprintf(
+        artifact_fp,
+        "OS4TB_GCC_EXECUTION_MODE=%s\n",
+        run_program_enabled ? "build_and_run" : "build_only");
+    (void)fprintf(
+        artifact_fp,
+        "OS4TB_GCC_EXECUTION_SKIPPED=%s\n",
+        execution_skipped ? "yes" : "no");
     (void)fprintf(artifact_fp, "OS4TB_GCC_DIRECT_LINK_LIBGCC=%s\n", project_toolchain_runtime_libgcc);
     (void)fprintf(artifact_fp, "OS4TB_GCC_DIRECT_LINK_LIBGCC_EH=%s\n", project_toolchain_runtime_libgcc_eh);
     (void)fprintf(artifact_fp, "OS4TB_GCC_DIRECT_LIBGCC_STATUS=%s\n", direct_libgcc_status);

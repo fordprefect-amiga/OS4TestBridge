@@ -120,6 +120,7 @@ import {
 const OUTPUT_CHANNEL_NAME = "OS4 Test Bridge";
 const SELECT_TARGET_CONFIGURATION_COMMAND_ID = "os4TestBridge.selectTargetConfiguration";
 const INITIALIZE_PROJECT_COMMAND_ID = "os4TestBridge.initializeProject";
+const BUILD_ONLY_PROJECT_COMMAND_ID = "os4TestBridge.buildProjectOnly";
 const DEFAULT_GCC_DIAGNOSTICS_PAYLOAD_NAME = "os4tb_gcc_diagnostics_probe";
 const DEFAULT_GCC_PROJECT_BUILD_RUN_PAYLOAD_NAME = "os4tb_gcc_project_build_run_adapter";
 const DEFAULT_VBCC_PROJECT_BUILD_RUN_PAYLOAD_NAME = "os4tb_vbcc_project_build_run_adapter";
@@ -134,6 +135,7 @@ type StatusState =
   | "Running on OS4..."
   | "Running GCC diagnostics..."
   | "Compiling on OS4..."
+  | "Building on OS4..."
   | "Building/running on OS4..."
   | "Validating..."
   | "PASS"
@@ -308,6 +310,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("os4TestBridge.buildAndRunProject", async () => {
       await runBuildAndRunProjectCommand(context, output, status, gccProblems);
+    }),
+    vscode.commands.registerCommand(BUILD_ONLY_PROJECT_COMMAND_ID, async () => {
+      await runBuildOnlyProjectCommand(context, output, status, gccProblems);
     }),
     vscode.commands.registerCommand(SELECT_TARGET_CONFIGURATION_COMMAND_ID, async () => {
       await runSelectTargetConfigurationCommand(status);
@@ -2021,7 +2026,8 @@ async function runBuildAndRunMultiFileProjectCommand(
     includeStagedRelativePaths: [],
     commandLabel: "Build and Run Multi-File Test Project on AmigaOS 4",
     commandClass: "build_run_multi_file_project",
-    successLabel: "OS4TB multi-file build/run PASS"
+    successLabel: "OS4TB multi-file build/run PASS",
+    executionPolicy: "build_and_run"
   });
 }
 
@@ -2030,6 +2036,25 @@ async function runBuildAndRunProjectCommand(
   output: vscode.OutputChannel,
   status: vscode.StatusBarItem,
   gccProblems: vscode.DiagnosticCollection
+): Promise<void> {
+  await runProjectCommand(context, output, status, gccProblems, "build_and_run");
+}
+
+async function runBuildOnlyProjectCommand(
+  context: vscode.ExtensionContext,
+  output: vscode.OutputChannel,
+  status: vscode.StatusBarItem,
+  gccProblems: vscode.DiagnosticCollection
+): Promise<void> {
+  await runProjectCommand(context, output, status, gccProblems, "build_only");
+}
+
+async function runProjectCommand(
+  context: vscode.ExtensionContext,
+  output: vscode.OutputChannel,
+  status: vscode.StatusBarItem,
+  gccProblems: vscode.DiagnosticCollection,
+  executionPolicy: "build_and_run" | "build_only"
 ): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   const documentCheck = validateBuildRunDocument({
@@ -2081,9 +2106,14 @@ async function runBuildAndRunProjectCommand(
     sourceStagedRelativePaths: parsedManifest.manifest.sourceRelativePaths,
     headerStagedRelativePaths: parsedManifest.manifest.headerRelativePaths,
     includeStagedRelativePaths: parsedManifest.manifest.includeRelativePaths,
-    commandLabel: "Build and Run Project on AmigaOS 4",
-    commandClass: "build_run_project",
-    successLabel: "OS4TB project build/run PASS"
+    commandLabel: executionPolicy === "build_only"
+      ? "Build Project (No Run) on AmigaOS 4"
+      : "Build and Run Project on AmigaOS 4",
+    commandClass: executionPolicy === "build_only" ? "build_project_only" : "build_run_project",
+    successLabel: executionPolicy === "build_only"
+      ? "OS4TB project build-only PASS"
+      : "OS4TB project build/run PASS",
+    executionPolicy
   });
 }
 
@@ -2108,6 +2138,7 @@ async function runProjectBuildAndRunCommand(params: {
   commandLabel: string;
   commandClass: string;
   successLabel: string;
+  executionPolicy: "build_and_run" | "build_only";
 }): Promise<void> {
   params.gccProblems.clear();
   const cfg = getConfig();
@@ -2134,7 +2165,7 @@ async function runProjectBuildAndRunCommand(params: {
 
   const requestDirectory = resolveGeneratedRequestDirectory(params.context, cfg.generatedRequestDirectory);
   const client = new Os4tbClient(cfg.executablePath, cfg.gccBuildRunTimeoutMs);
-  setStatus(params.status, "Building/running on OS4...");
+  setStatus(params.status, params.executionPolicy === "build_only" ? "Building on OS4..." : "Building/running on OS4...");
 
   const discoverySnapshot = await loadToolchainDiscoverySnapshotFromCache(params.context);
   if (!discoverySnapshot) {
@@ -2292,6 +2323,7 @@ async function runProjectBuildAndRunCommand(params: {
           sourceKinds: params.sourceKinds,
           defineEntries: params.defineEntries,
           libraryNames: params.libraryNames,
+          executionPolicy: params.executionPolicy,
           buildProfile: params.buildProfile,
           toolchain: selectedToolchain as ProjectResolvedToolchainProfile,
           assembler: selectedAssembler
@@ -2705,6 +2737,8 @@ async function runProjectBuildAndRunCommand(params: {
     errorCount: counts.errorCount,
     warningCount: counts.warningCount,
     noteCount: counts.infoCount
+  }, {
+    requestedExecutionMode: params.executionPolicy
   });
   const artifactSourceCountRaw = artifactFields.OS4TB_GCC_PROJECT_SOURCE_COUNT;
   const artifactSourceCount = artifactSourceCountRaw && /^[0-9]+$/.test(artifactSourceCountRaw)
@@ -2715,6 +2749,12 @@ async function runProjectBuildAndRunCommand(params: {
   params.output.appendLine(`OS4TB_GCC_EXECUTABLE_STATUS=${buildSummary.executableStatus ?? "missing"}`);
   params.output.appendLine(`OS4TB_GCC_EXECUTABLE_NAME=${executableName}`);
   params.output.appendLine(`OS4TB_PROGRAM_EXIT=${buildSummary.programExit ?? "missing"}`);
+  if (buildSummary.executionMode) {
+    params.output.appendLine(`OS4TB_GCC_EXECUTION_MODE=${buildSummary.executionMode}`);
+  }
+  if (buildSummary.executionSkipped) {
+    params.output.appendLine(`OS4TB_GCC_EXECUTION_SKIPPED=${buildSummary.executionSkipped}`);
+  }
   params.output.appendLine(`OS4TB_GCC_PROJECT_SOURCE_COUNT=${artifactSourceCount}`);
   for (let i = 0; i < artifactSourceCount; i += 1) {
     params.output.appendLine(`OS4TB_GCC_PROJECT_SOURCE_${i}=${artifactFields[`OS4TB_GCC_PROJECT_SOURCE_${i}`] ?? "missing"}`);
@@ -2878,7 +2918,7 @@ async function runProjectBuildAndRunCommand(params: {
     params.output.appendLine("OS4TB_PROGRAM_FINAL=NOT_RUN");
     setStatus(params.status, "FAIL");
     vscode.window.showErrorMessage(
-      `OS4TB project build FAIL (${primaryErrorLabel}, errors=${counts.errorCount}, warnings=${counts.warningCount})`
+      `OS4TB project build FAIL (reason=${outcome.buildReason}, ${primaryErrorLabel}, errors=${counts.errorCount}, warnings=${counts.warningCount})`
     );
     return;
   }
@@ -2889,6 +2929,12 @@ async function runProjectBuildAndRunCommand(params: {
     params.output.appendLine("OS4TB_PROGRAM_FINAL=PASS");
     setStatus(params.status, "PASS");
     vscode.window.showInformationMessage(`${params.successLabel} (${artifactSourceCount} sources, exit=0)`);
+    return;
+  }
+  if (params.executionPolicy === "build_only" && outcome.programFinal === "NOT_RUN") {
+    params.output.appendLine("OS4TB_PROGRAM_FINAL=NOT_RUN");
+    setStatus(params.status, "PASS");
+    vscode.window.showInformationMessage(`${params.successLabel} (${artifactSourceCount} sources, execution=skipped)`);
     return;
   }
 

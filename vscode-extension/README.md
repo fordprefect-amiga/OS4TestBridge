@@ -80,6 +80,7 @@ Phase 6A closure tokens:
 - `OS4 Test Bridge: Build and Run Current File on AmigaOS 4`
 - `OS4 Test Bridge: Build and Run Multi-File Test Project on AmigaOS 4`
 - `OS4 Test Bridge: Build and Run Project on AmigaOS 4`
+- `OS4 Test Bridge: Build Project (No Run) on AmigaOS 4`
 - `OS4 Test Bridge: Select Target Configuration`
 - `OS4 Test Bridge: Initialize Project`
 - `OS4 Test Bridge: Inspect AmigaOS 4 SDK / Toolchains`
@@ -96,7 +97,7 @@ Phase 6A closure tokens:
 - `os4TestBridge.gccDiagnosticsPayloadName` (for Test GCC Diagnostics)
 - `os4TestBridge.gccCompilePayloadName` (for Compile Current File on AmigaOS 4)
 - `os4TestBridge.gccBuildRunPayloadName` (for Build and Run Current File on AmigaOS 4)
-- `os4TestBridge.gccProjectBuildRunPayloadName` (for Build and Run Multi-File Test Project on AmigaOS 4 and Build and Run Project on AmigaOS 4)
+- `os4TestBridge.gccProjectBuildRunPayloadName` (for Build and Run Multi-File Test Project on AmigaOS 4, Build and Run Project on AmigaOS 4, and Build Project (No Run) on AmigaOS 4)
 - `os4TestBridge.vbccProjectBuildRunPayloadName` (for VBCC-family Build and Run Project on AmigaOS 4)
 - `os4TestBridge.assemblerProjectBuildRunPayloadName` (for typed assembler project build/run workflows)
 - `os4TestBridge.inspectToolchainsPayloadName` (for Inspect AmigaOS 4 SDK / Toolchains)

@@ -63,6 +63,7 @@ test("stages valid two-source project and preserves manifest order", async () =>
   assert.match(manifest, /^SOURCE_0=src\/main\.c$/m);
   assert.match(manifest, /^SOURCE_1=src\/helper\.c$/m);
   assert.match(manifest, /^DEFINE_0=FEATURE_X=1$/m);
+  assert.doesNotMatch(manifest, /^RUN_PROGRAM=/m);
 });
 
 test("stages multi-directory project with byte-identical source/header copies", async () => {
@@ -112,6 +113,42 @@ test("stages multi-directory project with byte-identical source/header copies", 
   assert.match(manifest, /^INCLUDE_1=src\/lib$/m);
   assert.match(manifest, /^DEFINE_COUNT=2$/m);
   assert.match(manifest, /^LIBRARY_COUNT=2$/m);
+  assert.doesNotMatch(manifest, /^RUN_PROGRAM=/m);
+});
+
+test("stages gcc project with explicit build-only execution policy", async () => {
+  const { projectRoot, stagingRoot } = await createTempRoots("os4tb-stage-build-only-");
+  const main = await writeFileRelative(projectRoot, "src/main.c", "int main(void){return 0;}\n");
+  const helper = await writeFileRelative(projectRoot, "src/helper.c", "int helper(void){return 1;}\n");
+
+  const result = await stageProjectBuildRunInputs({
+    projectRoot,
+    stagingRoot,
+    stagedProjectDirectoryBasename: "project_req_build_only",
+    sourceFilePaths: [main, helper],
+    headerFilePaths: [],
+    includeDirectoryPaths: [],
+    sourceStagedRelativePaths: ["src/main.c", "src/helper.c"],
+    headerStagedRelativePaths: [],
+    includeStagedRelativePaths: [],
+    manifestBasename: PROJECT_GUEST_MANIFEST_FILENAME,
+    manifestMode: {
+      kind: "gcc",
+      sourceKinds: ["c", "c"],
+      defineEntries: [],
+      libraryNames: [],
+      executionPolicy: "build_only",
+      buildProfile: {
+        cStandard: "c11",
+        warningLevel: "strict",
+        optimization: "none",
+        debugSymbols: "no"
+      }
+    }
+  });
+
+  const manifest = await fs.readFile(result.projectManifestPath, "utf8");
+  assert.match(manifest, /^RUN_PROGRAM=no$/m);
 });
 
 test("fails on missing source", async () => {

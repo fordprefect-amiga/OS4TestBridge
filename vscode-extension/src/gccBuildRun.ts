@@ -4,16 +4,27 @@ export interface BuildRunArtifactSummary {
   buildExit: number | undefined;
   executableStatus: string | undefined;
   executableName: string | undefined;
+  executionMode: string | undefined;
+  executionSkipped: string | undefined;
+  programExitRaw: string | undefined;
   programExit: number | undefined;
   programFinal: string | undefined;
 }
 
 export interface BuildRunOutcome {
   buildFinal: "PASS" | "FAIL";
-  buildReason: "build_pass" | "build_failed" | "executable_missing" | "build_exit_missing";
+  buildReason:
+    | "build_pass"
+    | "build_failed"
+    | "executable_missing"
+    | "build_exit_missing"
+    | "execution_evidence_missing"
+    | "execution_evidence_mismatch";
   programFinal: "PASS" | "FAIL" | "NOT_RUN";
   programReason: "program_pass" | "program_failed" | "not_run";
 }
+
+export type BuildRunRequestedExecutionMode = "build_and_run" | "build_only";
 
 export function validateBuildRunDocument(input: CompileDocumentCheckInput) {
   return validateCompileDocument(input);
@@ -38,6 +49,9 @@ export function parseBuildRunArtifactSummary(fields: Record<string, string>): Bu
     buildExit,
     executableStatus: fields.OS4TB_GCC_EXECUTABLE_STATUS,
     executableName: fields.OS4TB_GCC_EXECUTABLE_NAME,
+    executionMode: fields.OS4TB_GCC_EXECUTION_MODE,
+    executionSkipped: fields.OS4TB_GCC_EXECUTION_SKIPPED,
+    programExitRaw,
     programExit,
     programFinal: fields.OS4TB_PROGRAM_FINAL
   };
@@ -45,8 +59,10 @@ export function parseBuildRunArtifactSummary(fields: Record<string, string>): Bu
 
 export function evaluateBuildRunOutcome(
   summary: BuildRunArtifactSummary,
-  counts: CompileCounts
+  counts: CompileCounts,
+  options: { requestedExecutionMode?: BuildRunRequestedExecutionMode } = {}
 ): BuildRunOutcome {
+  const requestedExecutionMode = options.requestedExecutionMode ?? "build_and_run";
   if (summary.buildExit === undefined) {
     return {
       buildFinal: "FAIL",
@@ -67,6 +83,51 @@ export function evaluateBuildRunOutcome(
     return {
       buildFinal: "FAIL",
       buildReason: "executable_missing",
+      programFinal: "NOT_RUN",
+      programReason: "not_run"
+    };
+  }
+  if (requestedExecutionMode === "build_only") {
+    if (
+      summary.executionMode === undefined ||
+      summary.executionSkipped === undefined ||
+      summary.programExitRaw === undefined ||
+      summary.programFinal === undefined
+    ) {
+      return {
+        buildFinal: "FAIL",
+        buildReason: "execution_evidence_missing",
+        programFinal: "NOT_RUN",
+        programReason: "not_run"
+      };
+    }
+    if (
+      summary.executionMode !== "build_only" ||
+      summary.executionSkipped !== "yes" ||
+      summary.programExitRaw !== "not_run" ||
+      summary.programFinal !== "NOT_RUN"
+    ) {
+      return {
+        buildFinal: "FAIL",
+        buildReason: "execution_evidence_mismatch",
+        programFinal: "NOT_RUN",
+        programReason: "not_run"
+      };
+    }
+    return {
+      buildFinal: "PASS",
+      buildReason: "build_pass",
+      programFinal: "NOT_RUN",
+      programReason: "not_run"
+    };
+  }
+  if (
+    (summary.executionMode !== undefined && summary.executionMode !== "build_and_run") ||
+    summary.executionSkipped === "yes"
+  ) {
+    return {
+      buildFinal: "FAIL",
+      buildReason: "execution_evidence_mismatch",
       programFinal: "NOT_RUN",
       programReason: "not_run"
     };

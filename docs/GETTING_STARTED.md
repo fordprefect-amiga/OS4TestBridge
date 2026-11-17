@@ -83,7 +83,7 @@ Run:
 1. `OS4 Test Bridge: Initialize Project`
 2. Optional: `OS4 Test Bridge: Select Project Toolchain`
 3. Optional: `OS4 Test Bridge: Select Project Assembler`
-4. `OS4 Test Bridge: Build and Run Project on AmigaOS 4`
+4. `OS4 Test Bridge: Build and Run Project on AmigaOS 4` (legacy build+run) or `OS4 Test Bridge: Build Project (No Run) on AmigaOS 4` (compile/link only)
 
 Diagnostics appear in Problems (`os4TestBridge.gcc` collection).
 

@@ -157,10 +157,43 @@ test("guest project manifest text includes source/header/include/define/library 
   assert.match(text, /^LIBRARY_COUNT=2$/m);
   assert.match(text, /^LIBRARY_0=m$/m);
   assert.match(text, /^LIBRARY_1=auto$/m);
+  assert.doesNotMatch(text, /^RUN_PROGRAM=/m);
   assert.match(text, /^C_STANDARD=c11$/m);
   assert.match(text, /^WARNING_LEVEL=extra$/m);
   assert.match(text, /^OPTIMIZATION=none$/m);
   assert.match(text, /^DEBUG_SYMBOLS=no$/m);
+});
+
+test("guest project manifest text supports explicit build-only execution policy", () => {
+  const text = buildGuestProjectManifestText(
+    ["src/main.c", "src/helper.c"],
+    ["c", "c"],
+    [],
+    [],
+    [],
+    [],
+    undefined,
+    undefined,
+    undefined,
+    "build_only"
+  );
+  assert.match(text, /^RUN_PROGRAM=no$/m);
+});
+
+test("guest project manifest text omits execution policy field for build-and-run mode", () => {
+  const text = buildGuestProjectManifestText(
+    ["src/main.c", "src/helper.c"],
+    ["c", "c"],
+    [],
+    [],
+    [],
+    [],
+    undefined,
+    undefined,
+    undefined,
+    "build_and_run"
+  );
+  assert.doesNotMatch(text, /^RUN_PROGRAM=/m);
 });
 
 test("guest project manifest text supports bounded declarative build profiles", () => {

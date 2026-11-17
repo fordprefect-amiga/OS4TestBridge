@@ -1150,7 +1150,8 @@ export function buildGuestProjectManifestText(
   libraryNames: string[],
   profile?: ProjectBuildProfile,
   toolchain?: ProjectResolvedToolchainProfile,
-  assembler?: ProjectResolvedAssemblerProfile
+  assembler?: ProjectResolvedAssemblerProfile,
+  executionPolicy: "build_and_run" | "build_only" = "build_and_run"
 ): string {
   const resolvedProfile: ProjectBuildProfile = profile ?? {
     cStandard: OS4TB_GCC_PROJECT_DEFAULT_C_STANDARD,
@@ -1181,6 +1182,9 @@ export function buildGuestProjectManifestText(
   lines.push(`LIBRARY_COUNT=${libraryNames.length}`);
   for (let i = 0; i < libraryNames.length; i += 1) {
     lines.push(`LIBRARY_${i}=${libraryNames[i]}`);
+  }
+  if (executionPolicy === "build_only") {
+    lines.push("RUN_PROGRAM=no");
   }
   lines.push(`C_STANDARD=${resolvedProfile.cStandard}`);
   lines.push(`WARNING_LEVEL=${resolvedProfile.warningLevel}`);
