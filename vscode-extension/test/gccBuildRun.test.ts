@@ -4,6 +4,7 @@ import {
   buildExecutableBasename,
   evaluateBuildRunOutcome,
   parseBuildRunArtifactSummary,
+  resolveReportedProgramExit,
   validateBuildRunDocument
 } from "../src/gccBuildRun";
 
@@ -190,5 +191,56 @@ test("build-only outcome rejects numeric sentinel exit values", () => {
   );
   assert.equal(outcome.buildFinal, "FAIL");
   assert.equal(outcome.buildReason, "execution_evidence_mismatch");
+});
+
+test("reporting uses not_run only for validated build-only evidence", () => {
+  const reported = resolveReportedProgramExit(
+    {
+      buildExit: 0,
+      executableStatus: "present",
+      executableName: "build_req",
+      executionMode: "build_only",
+      executionSkipped: "yes",
+      programExitRaw: "not_run",
+      programExit: undefined,
+      programFinal: "NOT_RUN"
+    },
+    { requestedExecutionMode: "build_only" }
+  );
+  assert.equal(reported, "not_run");
+});
+
+test("reporting preserves numeric exit for build-and-run", () => {
+  const reported = resolveReportedProgramExit(
+    {
+      buildExit: 0,
+      executableStatus: "present",
+      executableName: "build_req",
+      executionMode: "build_and_run",
+      executionSkipped: "no",
+      programExitRaw: "0",
+      programExit: 0,
+      programFinal: "PASS"
+    },
+    { requestedExecutionMode: "build_and_run" }
+  );
+  assert.equal(reported, "0");
+});
+
+test("reporting fails closed when build-only evidence is contradictory", () => {
+  const reported = resolveReportedProgramExit(
+    {
+      buildExit: 0,
+      executableStatus: "present",
+      executableName: "build_req",
+      executionMode: "build_and_run",
+      executionSkipped: "no",
+      programExitRaw: "0",
+      programExit: 0,
+      programFinal: "PASS"
+    },
+    { requestedExecutionMode: "build_only" }
+  );
+  assert.equal(reported, "0");
 });
 

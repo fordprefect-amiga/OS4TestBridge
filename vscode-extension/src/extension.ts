@@ -8,6 +8,7 @@ import {
   buildExecutableBasename,
   evaluateBuildRunOutcome,
   parseBuildRunArtifactSummary,
+  resolveReportedProgramExit,
   validateBuildRunDocument
 } from "./gccBuildRun";
 import {
@@ -2748,7 +2749,10 @@ async function runProjectBuildAndRunCommand(params: {
   params.output.appendLine(`OS4TB_GCC_BUILD_EXIT=${buildSummary.buildExit ?? "missing"}`);
   params.output.appendLine(`OS4TB_GCC_EXECUTABLE_STATUS=${buildSummary.executableStatus ?? "missing"}`);
   params.output.appendLine(`OS4TB_GCC_EXECUTABLE_NAME=${executableName}`);
-  params.output.appendLine(`OS4TB_PROGRAM_EXIT=${buildSummary.programExit ?? "missing"}`);
+  const reportedProgramExit = resolveReportedProgramExit(buildSummary, {
+    requestedExecutionMode: params.executionPolicy
+  });
+  params.output.appendLine(`OS4TB_PROGRAM_EXIT=${reportedProgramExit}`);
   if (buildSummary.executionMode) {
     params.output.appendLine(`OS4TB_GCC_EXECUTION_MODE=${buildSummary.executionMode}`);
   }

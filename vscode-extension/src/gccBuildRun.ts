@@ -147,3 +147,19 @@ export function evaluateBuildRunOutcome(
     programReason: "program_failed"
   };
 }
+
+export function resolveReportedProgramExit(
+  summary: BuildRunArtifactSummary,
+  options: { requestedExecutionMode?: BuildRunRequestedExecutionMode } = {}
+): string {
+  if (
+    options.requestedExecutionMode === "build_only" &&
+    summary.executionMode === "build_only" &&
+    summary.executionSkipped === "yes" &&
+    summary.programExitRaw === "not_run" &&
+    summary.programFinal === "NOT_RUN"
+  ) {
+    return "not_run";
+  }
+  return `${summary.programExit ?? "missing"}`;
+}
